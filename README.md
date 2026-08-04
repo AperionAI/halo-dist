@@ -1,2 +1,2 @@
 # halo-dist
-Dist for Halo product
+Prebuilt Halo release binaries — source is closed, see get.halo.aperion.ai
