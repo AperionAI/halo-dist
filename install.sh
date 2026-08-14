@@ -16,10 +16,35 @@ REPO="${HALO_DIST_REPO:-AperionAI/halo-dist}"
 BIN="halo"
 # Override with HALO_INSTALL_DIR=... to change the destination.
 INSTALL_DIR="${HALO_INSTALL_DIR:-}"
-# Override with HALO_VERSION=halo-v1.2.0 to pin; default is the latest release.
+# Override with HALO_VERSION=halo-v1.4.1 to pin; default is the latest release.
 VERSION="${HALO_VERSION:-latest}"
 
 err() { echo "halo-install: $*" >&2; exit 1; }
+
+# Tell the user how to put $1 on PATH in this shell and in their rc file.
+path_hint() {
+  dir="$1"
+  echo "halo-install: NOTE: $dir is not on your PATH."
+  echo "  This shell:"
+  echo "    export PATH=\"$dir:\$PATH\""
+  shellname="$(basename "${SHELL:-sh}")"
+  case "$shellname" in
+    zsh) rc="$HOME/.zshrc" ;;
+    bash)
+      if [ "$(uname -s)" = Darwin ]; then rc="$HOME/.bash_profile"
+      else rc="$HOME/.bashrc"
+      fi
+      ;;
+    fish) rc="$HOME/.config/fish/config.fish" ;;
+    *) rc="$HOME/.profile" ;;
+  esac
+  echo "  Permanent:"
+  if [ "$shellname" = fish ]; then
+    echo "    echo 'fish_add_path $dir' >> $rc"
+  else
+    echo "    echo 'export PATH=\"$dir:\$PATH\"' >> $rc"
+  fi
+}
 
 detect_target() {
   os="$(uname -s)"
@@ -87,10 +112,18 @@ main() {
   [ -f "$extracted/halo-relay" ] && install -m 0755 "$extracted/halo-relay" "$dir/halo-relay"
 
   echo "halo-install: installed to $dir"
+
+  # On a multi-user / agent box the proxy typically runs as a service user, so
+  # a per-user ~/.local/bin install is invisible to it. Point that out and how
+  # to fix it, since HALO_INSTALL_DIR is otherwise undiscoverable.
+  if [ -z "$INSTALL_DIR" ] && [ "$dir" = "$HOME/.local/bin" ]; then
+    echo "halo-install: NOTE: installed to your personal $HOME/.local/bin -- only visible to $(whoami)."
+    echo "  If a service user (e.g. the one your agent runtime runs as) needs it, install to a shared dir:"
+    echo "    HALO_INSTALL_DIR=/usr/local/bin sudo -E sh -c 'curl -fsSL https://halo-get.aperion.ai | sh'"
+  fi
   case ":$PATH:" in
     *":$dir:"*) : ;;
-    *) echo "halo-install: NOTE: $dir is not on your PATH. Add it, e.g.:"
-       echo "  echo 'export PATH=\"$dir:\$PATH\"' >> ~/.profile" ;;
+    *) path_hint "$dir" ;;
   esac
   "$dir/$BIN" --version || true
   echo "halo-install: done. Next: 'halo agent add <name> --provider ...' then 'halo serve'."
