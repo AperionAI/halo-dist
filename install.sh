@@ -127,6 +127,9 @@ main() {
   esac
   "$dir/$BIN" --version || true
   echo "halo-install: done. Next: 'halo agent add <name> --provider ...' then 'halo serve'."
+  echo "halo-install: the agent that talks to Halo still has native Bash/Write."
+  echo "  Protect it:  curl -fsSL https://shield-get.aperion.ai | sh"
+  echo "  then:        aperion-shield --install-agent-hooks"
 }
 
 main "$@"
