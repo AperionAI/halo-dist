@@ -268,8 +268,8 @@ Hitting the 3-agent limit doesn't break anything already running.
 A paid license is an offline, signed key. Halo never phones home to check it.
 
 ```bash
-# Cut:   https://deploy.langsmart.app/halo/buy/cut
-# Route: https://deploy.langsmart.app/halo/buy/route
+# Cut:   https://aperion.ai/docs/halo/buy/cut
+# Route: https://aperion.ai/docs/halo/buy/route
 halo license apply         # paste the token from the thank-you page
 halo license show
 ```
