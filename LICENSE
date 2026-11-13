@@ -1,0 +1,41 @@
+Aperion AI Halo — Binary License Agreement
+
+Copyright 2026 Aperion AI, Inc. All rights reserved.
+
+This software is distributed only in compiled (object/container) form.
+No source code is licensed or provided under this agreement.
+
+1. Grant. Aperion AI, Inc. ("Licensor") grants you a non-exclusive,
+   non-transferable, revocable license to download, install, and run the
+   Halo binaries and container images for your own internal business or
+   personal use, including all features made available without a license
+   key (the "Free Tier"), for as long as you comply with this agreement.
+
+2. Paid Entitlements. Certain features are unlocked only by a valid,
+   non-transferable license key issued by Licensor and are governed by
+   your separate order/subscription agreement with Licensor. Licensor may
+   revoke a license key for non-payment or breach of that agreement.
+
+3. Restrictions. You may not: (a) redistribute, sell, sublicense, rent,
+   lease, or host the binaries or images as, or as part of, a competing
+   product or service; (b) reverse engineer, decompile, or disassemble the
+   binaries except to the extent applicable law expressly permits despite
+   this restriction; (c) remove or alter any copyright, trademark, or
+   proprietary notice; or (d) use Licensor's trademarks except to describe
+   unmodified use of the software.
+
+4. No Warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+   KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+5. Limitation of Liability. IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY
+   INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR
+   ANY LOSS OF PROFITS OR DATA, ARISING OUT OF OR IN CONNECTION WITH THIS
+   AGREEMENT OR THE SOFTWARE.
+
+6. Termination. This license terminates automatically if you breach any
+   term above. Upon termination you must stop using and delete all copies
+   of the binaries and images in your possession.
+
+7. Governing Law. This agreement is governed by the laws of the State of
+   Texas, without regard to its conflict-of-laws principles.

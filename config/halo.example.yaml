@@ -1,0 +1,188 @@
+# Smartflow Halo shim configuration.
+#
+# Copy to ~/.halo/config.yaml (or set $HALO_HOME to relocate the base dir).
+# Every field is optional; the defaults below are what Halo uses when the file
+# is absent. Real provider keys are NEVER stored here -- they live in your OS
+# keychain (see `halo agent add`).
+
+# Loopback address the LLM-API ingress binds to. Keep it on 127.0.0.1 unless
+# you deliberately want other machines to reach the proxy.
+listen: "127.0.0.1:8787"
+
+# Local admin dashboard: a loopback-only web UI (savings, agents, settings)
+# bundled into the `halo` binary itself. Free tier, on by default, no
+# network, no account. Reads need nothing; writes (revoke an agent, change
+# settings) require the local token from `halo dashboard token`.
+# dashboard:
+#   enabled: true
+#   listen: "127.0.0.1:8788"
+
+# Minimal hosted relay for the savings dashboard. Omit both to run fully local
+# (budgets, cache, and `halo report` all still work offline).
+# relay_url: "https://halo-relay.example.com"
+# relay_token: "paste-the-device-token-issued-at-registration"
+
+# Paid-tier license key. Either the signed token itself or a path to a file
+# holding it. Absent / invalid / expired always resolves to the FREE tier and
+# never blocks startup. Free is the firewall (caps, kill switch, denylist,
+# meter, 7-day history). Cache, compression, and prompt-cache injection are
+# Cut -- that's the bill cut. Free still meters them as a starred "would
+# have saved" figure. Check yours with `halo license show`.
+# license_key: "eyJ...paste-the-token..."      # or: ~/.halo/license.key
+
+# Webhook URL that budget soft/hard-cap crossings POST to. Paid feature
+# ("alerting"); ignored on the free tier.
+# alert_webhook: "https://hooks.example.com/halo-budget"
+
+# Outbound egress. A starter denylist always applies (cloud metadata + a few
+# paste/exfil sinks) even if you leave this commented out. Extra denies go
+# under denied_upstreams; empty extras do not open metadata.
+# allowed_upstreams is opt-in: empty = any non-denied host.
+#
+# Worked example -- an Anthropic-only box that also reports to your own relay:
+# egress:
+#   denied_upstreams:
+#     - "evil.example.com"
+#   allowed_upstreams:
+#     - "api.anthropic.com"
+#     - ".yourcompany.com"      # matches relay.yourcompany.com, etc.
+
+# Encrypt the content-bearing local stores (cache.redb response bodies,
+# semantic_cache.redb's stored answer text) at rest. Off by default -- no
+# behavior change for existing installs. Keyed off $HALO_VAULT_PASSPHRASE
+# (the same env var the credential fallback already uses); if true here and
+# that's unset, `halo serve` refuses to start rather than silently running in
+# plaintext. Embedding vectors and metadata (ledger/audit/telemetry) are
+# never sealed -- they can't be turned back into prompt or response text.
+# encrypt_at_rest: false
+
+budget:
+  # Rolling window the caps apply over. Fresh installs materialize $25 soft /
+  # $50 hard (the kill switch) so a runaway is refused without YAML hunting.
+  window_hours: 24
+  # Global caps across all agents. soft = warn but keep serving; hard = the
+  # kill switch (refuse locally, always, even if the relay was never up).
+  soft_cap_usd: 25.0
+  hard_cap_usd: 50.0
+  # Optional per-agent overrides (Cut). Win over the global caps for that agent.
+  # Ignored on Free -- global $25/$50 still apply.
+  per_agent:
+    - agent_id: "researcher"
+      soft_cap_usd: 10.0
+      hard_cap_usd: 20.0
+
+cache:
+  enabled: true
+  # Hard cap on stored entries -- enforced from day one, not bolted on later.
+  # Free still WRITES hits so the dashboard can star what Cut would have
+  # saved; Cut is what SERVES them.
+  max_entries: 10000
+
+# The semantic (embedding-similarity) cache: reuse an answer for a prompt
+# that's SIMILAR but not identical -- including across providers/models.
+# Cut feature, OFF by default: unlike exact-match this spends real (if tiny)
+# money on every lookup and every store, since it calls an embeddings API.
+#
+# Turning it on:
+#   1. `halo embeddings set-key` (skip for provider: ollama or mock)
+#   2. semantic_cache.enabled: true
+#
+# What it will and won't match, by design:
+#   * Single-shot questions only (one user turn, no prior assistant/tool
+#     history) -- multi-turn semantic matching needs the whole conversation
+#     embedded and a higher safety bar; not in v1.1.
+#   * Never a request using `tools`/`functions`, or `response_format` other
+#     than plain text -- a similar-but-different prompt might need a
+#     different tool call or a JSON shape the cached answer doesn't have.
+#   * The system prompt must match exactly (same persona/task), but the
+#     model and provider are deliberately NOT part of the match key -- that's
+#     what makes cross-provider reuse possible.
+#   * Every candidate is cosine-re-checked against the live query at request
+#     time; a coarse keyword partition only narrows the search, it never
+#     decides a hit by itself.
+semantic_cache:
+  enabled: false
+  # "openai" | "ollama" | "mock". Always an API call -- Halo never loads or
+  # runs an embedding model itself, even for "ollama" (that talks to your own
+  # already-running server; Halo doesn't start it).
+  provider: "openai"
+  model: "text-embedding-3-small"
+  # base_url: "http://localhost:11434"   # required for provider: ollama
+  # Minimum cosine similarity to serve a candidate. A false-positive semantic
+  # hit is a wrong answer served silently, so this errs conservative.
+  similarity_threshold: 0.93
+  max_entries: 2000
+
+compression:
+  # standard (default): phrases + whitespace + cache_control.
+  # aggressive: also crush the newest tool/MCP payload on the wire (Cut/Route).
+  # Original recoverable via the injected smartflow_expand tool.
+  mode: standard
+  # Safe, meaning-preserving multi-word reductions. Cut applies them to the
+  # wire; Free still computes the ratio for the starred savings figure.
+  verbose_phrases: true
+  # Collapse 3+ blank lines to 2 and strip trailing line whitespace. Never
+  # touches leading whitespace/indentation (safe for pasted code/YAML/lists).
+  # On by default -- meaning cannot change either way.
+  whitespace: true
+  # Aggressive single-word/symbol abbreviations (e.g. "and" -> "&"). These can
+  # change meaning, so they are strictly opt-in.
+  aggressive_abbreviations: false
+  # Inject Anthropic cache_control breakpoints on:
+  #   * the system prompt,
+  #   * the `tools` definitions (often the largest, most stable block),
+  #   * the first message's attachment-shaped content (a pasted document,
+  #     screenshot, or RAG context block that precedes the per-turn question).
+  # Each fires when the block is either large on its own (>=4000 chars) or
+  # smaller-but-seen 3+ times this process (>=2000 chars) -- same heuristic
+  # as the main Smartflow proxy's `prompt_cache_injector.rs`, extended to
+  # cover tools/attachments, which it doesn't. This is pure request-shaping;
+  # OpenAI caches automatically and needs no injection. No effect unless the
+  # served model actually honors Anthropic prompt caching. Cut applies this;
+  # Free does not inject.
+  anthropic_cache_control: true
+
+# Refuse an MCP tool call before it is forwarded if the arguments contain
+# uncloaked secret shapes (API keys, tokens). Default on. Cloaked
+# {{cloak:NAME}} placeholders are resolved after this check and are not a block.
+# mcp_block_uncloaked_secrets: true
+
+# Route-tier failover: agent id -> backup agent id. On transport error or
+# 502/503/504/529, Halo retries once with the backup agent's provider/key.
+# Ignored on Free/Cut. No recursive hops.
+# failover:
+#   researcher: researcher-backup
+
+# Route-tier task-class routing. Spend still hits the inbound agent's cap;
+# the mapped agent's provider/key is what goes on the wire. `code` is the
+# cheap lane: models whose name contains glm / coder / code- classify as
+# `code`, or send X-Halo-Task-Class. Ignored on Free/Cut.
+# routing:
+#   by_class:
+#     code: glm
+#     embedding: embed-mini
+#   models:
+#     code: glm-4.7
+
+# MCP servers Halo fronts. Point your agent runtime's MCP config at Halo
+# (e.g. http://127.0.0.1:8787/mcp/<name>) instead of these servers directly.
+# Halo runs each server internally and applies Shield's cloak + taint at the
+# seam. Register secrets with `aperion-shield` and reference them in tool args
+# as {{cloak:NAME}}; Halo resolves them only on the copy sent upstream.
+mcp_servers:
+  - name: "postgres"
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+    env: {}
+
+# The built-in price table is a small, hand-maintained approximation (unlike
+# LiteLLM's continuously-refreshed price file) and falls back to a mid-tier
+# guess for models it doesn't recognize. That's fine most of the time, but
+# it matters a lot for a budget/kill-switch product -- override anything it
+# gets wrong here. `model` is substring-matched the same way as the built-in
+# table (longest match wins).
+# price_overrides:
+#   - model: "gpt-4o-mini"
+#     input_per_mtok: 0.15
+#     output_per_mtok: 0.60
+#     cached_input_per_mtok: 0.075
